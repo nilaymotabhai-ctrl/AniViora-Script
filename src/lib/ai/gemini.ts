@@ -16,6 +16,11 @@ const MASTER_SYSTEM_PROMPT = [
   PROMPT_SAFETY_OUTPUT
 ].filter(Boolean).join('\n\n---\n\n');
 
+export function isGeminiConfigured(): boolean {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  return Boolean(apiKey && apiKey !== 'your_key_here' && apiKey.trim() !== '');
+}
+
 export async function generateStory(formData: any) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your_key_here') {
