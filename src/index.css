@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/* ============================================
+   AniViora Craft — Design System (Tailwind v4)
+   ============================================ */
+@theme {
+  /* ---------- Color Palette ---------- */
+  --color-bg-primary: #f5efe8; /* Warm Cream */
+  --color-bg-dark: #2d1b3d; /* Deep Purple */
+  --color-bg-card: #ffffff; /* White */
+  --color-bg-info: #fdf4ee; /* Light Peach */
+
+  --color-accent-primary: #d96b3a; /* Terracotta Orange */
+  --color-accent-hover: #b8562d; /* Darker Orange */
+
+  --color-text-primary: #2d1b3d; /* Dark Purple */
+  --color-text-secondary: #6b5b73; /* Muted Purple */
+  --color-text-light: #ffffff; /* White */
+
+  --color-border-color: #e8dfd4; /* Light Beige */
+
+  --color-success: #4a7c59; /* Green */
+  --color-error: #c44536; /* Red */
+
+  /* ---------- Typography ---------- */
+  --font-heading: "Fraunces", "Georgia", ui-serif, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-hindi: "Noto Sans Devanagari", "Inter", ui-sans-serif, sans-serif;
+
+  /* Type Scale (H1 56 / H2 42 / H3 28 / H4 20) */
+  --text-h1: 3.5rem;
+  --text-h1--line-height: 1.08;
+  --text-h1--font-weight: 700;
+  --text-h2: 2.625rem;
+  --text-h2--line-height: 1.15;
+  --text-h2--font-weight: 700;
+  --text-h3: 1.75rem;
+  --text-h3--line-height: 1.25;
+  --text-h3--font-weight: 600;
+  --text-h4: 1.25rem;
+  --text-h4--line-height: 1.4;
+  --text-h4--font-weight: 600;
+
+  /* ---------- Radii ---------- */
+  --radius-card: 1rem; /* 16px cards */
+
+  /* ---------- Shadows ---------- */
+  --shadow-card: 0 1px 2px rgb(45 27 61 / 0.05),
+    0 8px 24px -12px rgb(45 27 61 / 0.12);
+  --shadow-card-hover: 0 2px 4px rgb(45 27 61 / 0.06),
+    0 16px 40px -16px rgb(45 27 61 / 0.18);
+  --shadow-button: 0 4px 14px -4px rgb(217 107 58 / 0.45);
+
+  /* ---------- Motion ---------- */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-up: fade-up 0.7s var(--ease-out-expo) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ---------- Base Styles ---------- */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg-primary font-sans text-text-primary antialiased;
+    font-size: 1rem;
+    line-height: 1.65;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading text-text-primary;
+    text-wrap: balance;
+  }
+
+  p {
+    line-height: 1.7;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-primary);
+    color: var(--color-text-light);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Custom scrollbar (webkit) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-primary);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-text-secondary) 45%, transparent);
+    border-radius: 999px;
+    border: 2px solid var(--color-bg-primary);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent-primary);
+  }
+}
+
+/* ---------- Reusable Utilities ---------- */
+@layer utilities {
+  .font-hindi {
+    font-family: var(--font-hindi);
+  }
+
+  /* Subtle dotted paper texture for cream backgrounds */
+  .texture-dots {
+    background-image: radial-gradient(
+      rgb(45 27 61 / 0.055) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
+  }
+
+  /* Dark variant of the dot texture */
+  .texture-dots-dark {
+    background-image: radial-gradient(
+      rgb(245 239 232 / 0.07) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
+  }
+}
