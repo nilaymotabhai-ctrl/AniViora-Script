@@ -37,12 +37,14 @@ export interface StoryRequest {
 /* ---------- Config ---------- */
 
 /**
- * Model fallback chain — tries the newest flash tier first and
- * degrades gracefully if a model id isn't available on the key.
+ * Model fallback chain — each candidate is attempted inside a
+ * try-catch loop; a failure (e.g. 404 model-not-found) rolls
+ * over to the next model until one succeeds.
  */
 const MODEL_CANDIDATES = [
   "gemini-2.0-flash",
   "gemini-1.5-flash-latest",
+  "gemini-1.5-pro",
   "gemini-1.5-flash",
 ] as const;
 
@@ -113,8 +115,12 @@ export async function generateStory(
       }
       return text;
     } catch (error) {
+      // Any failure (404 model-not-found, quota, etc.) → try the next model.
+      console.warn(
+        `[AniViora Craft] Model "${modelName}" failed — trying next fallback…`,
+        error instanceof Error ? error.message : error
+      );
       lastError = error;
-      // Try the next model candidate.
     }
   }
 
