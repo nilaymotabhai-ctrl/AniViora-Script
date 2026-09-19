@@ -14,18 +14,44 @@ const MASTER_SYSTEM_PROMPT = [
   PROMPT_SAFETY_OUTPUT
 ].filter(Boolean).join('\n\n---\n\n');
 
-// AAPKI ASLI GEMINI API KEY DIRECT CODE MEIN FALLBACK:
 const HARDCODED_GEMINI_KEY = 'AIzaSyDMuC6-Yls3wqjpogQ82buJspSpeSPfOgk';
 
 export function isGeminiConfigured(): boolean {
   return true;
 }
 
+// Smart function to automatically find an active working Gemini model for this API key
+async function findWorkingModelName(apiKey: string): Promise<string[]> {
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const listData = await listRes.json();
+    
+    if (listData.models && Array.isArray(listData.models)) {
+      const activeModels = listData.models
+        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+        .map((m: any) => m.name.replace('models/', ''));
+      
+      if (activeModels.length > 0) {
+        return activeModels;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not auto-list models, falling back to default list');
+  }
+
+  return [
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-exp',
+    'gemini-1.5-flash-8b',
+    'gemini-1.5-pro'
+  ];
+}
+
 export async function generateStory(formData: any) {
-  // Pehle Vercel env var dekhega, agar nahi mila toh direct aapki key use karega!
   const apiKey = (import.meta.env.VITE_GEMINI_API_KEY && !import.meta.env.VITE_GEMINI_API_KEY.includes('your_key')) 
-    ? import.meta.env.VITE_GEMINI_API_KEY 
-    : HARDCODED_GEMINI_KEY;
+    ? import.meta.env.VITE_GEMINI_API_KEY.trim()
+    : HARDCODED_GEMINI_KEY.trim();
 
   const combinedPrompt = `
 SYSTEM INSTRUCTIONS & MASTER RULES:
@@ -45,26 +71,18 @@ USER STORY SELECTIONS:
 Please generate a full, highly detailed, viral-ready Hindi animation script now.
   `.trim();
 
-  const endpoints = [
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-    'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent',
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-    'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent'
-  ];
+  // Dynamically discover models supported by this specific API Key
+  const modelsToTry = await findWorkingModelName(apiKey);
+  let lastErrorMsg = '';
 
-  let errors: string[] = [];
-
-  for (const endpointUrl of endpoints) {
+  for (const modelName of modelsToTry) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
     try {
-      const response = await fetch(`${endpointUrl}?key=${apiKey.trim()}`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: combinedPrompt }]
-            }
-          ]
+          contents: [{ parts: [{ text: combinedPrompt }] }]
         })
       });
 
@@ -75,12 +93,12 @@ Please generate a full, highly detailed, viral-ready Hindi animation script now.
       }
 
       if (data.error) {
-        errors.push(`${data.error.code || ''}: ${data.error.message || JSON.stringify(data.error)}`);
+        lastErrorMsg = `${modelName}: ${data.error.message || JSON.stringify(data.error)}`;
       }
     } catch (err: any) {
-      errors.push(err?.message || 'Network error');
+      lastErrorMsg = err?.message || 'Network error';
     }
   }
 
-  throw new Error(`Google Gemini Error: ${errors[0] || 'Failed to generate story'}`);
+  throw new Error(`Google API Error: ${lastErrorMsg || 'No active Gemini models responded'}`);
 }
