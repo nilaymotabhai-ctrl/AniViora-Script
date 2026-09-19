@@ -14,14 +14,14 @@ const MASTER_SYSTEM_PROMPT = [
   PROMPT_SAFETY_OUTPUT
 ].filter(Boolean).join('\n\n---\n\n');
 
-const HARDCODED_GEMINI_KEY = 'AIzaSyDMuC6-Yls3wqjpogQ82buJspSpeSPfOgk';
-
 export function isGeminiConfigured(): boolean {
-  return true;
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  return Boolean(apiKey && apiKey !== 'your_key_here' && apiKey.trim() !== '' && !apiKey.includes('your_key'));
 }
 
-// Smart function to automatically find an active working Gemini model for this API key
-async function findWorkingModelName(apiKey: string): Promise<string[]> {
+// 🧠 SMART AUTOMATIC MODEL FINDER
+// Ye Google ke server se live poochhta hai ki abhi kaunse models active hain
+async function findWorkingModels(apiKey: string): Promise<string[]> {
   try {
     const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     const listData = await listRes.json();
@@ -36,22 +36,27 @@ async function findWorkingModelName(apiKey: string): Promise<string[]> {
       }
     }
   } catch (e) {
-    console.warn('Could not auto-list models, falling back to default list');
+    console.warn('Auto-model discovery failed, using fallback chain');
   }
 
+  // Fallback active models
   return [
-    'gemini-1.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-flash-8b',
+    'gemini-1.5-flash-002',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro-002',
     'gemini-1.5-pro'
   ];
 }
 
 export async function generateStory(formData: any) {
-  const apiKey = (import.meta.env.VITE_GEMINI_API_KEY && !import.meta.env.VITE_GEMINI_API_KEY.includes('your_key')) 
-    ? import.meta.env.VITE_GEMINI_API_KEY.trim()
-    : HARDCODED_GEMINI_KEY.trim();
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  
+  if (!apiKey || apiKey === 'your_key_here' || apiKey.includes('your_key')) {
+    throw new Error('API Key Vercel mein connected nahi hai. Kripya Vercel Environment Variables mein VITE_GEMINI_API_KEY verify karke REDEPLOY karein.');
+  }
+
+  const cleanKey = apiKey.trim();
 
   const combinedPrompt = `
 SYSTEM INSTRUCTIONS & MASTER RULES:
@@ -71,34 +76,41 @@ USER STORY SELECTIONS:
 Please generate a full, highly detailed, viral-ready Hindi animation script now.
   `.trim();
 
-  // Dynamically discover models supported by this specific API Key
-  const modelsToTry = await findWorkingModelName(apiKey);
+  // Discover live working models for this API key
+  const availableModels = await findWorkingModels(cleanKey);
   let lastErrorMsg = '';
 
-  for (const modelName of modelsToTry) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: combinedPrompt }] }]
-        })
-      });
+  for (const modelName of availableModels) {
+    // Try both v1beta and v1 endpoints dynamically
+    const apiEndpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${cleanKey}`
+    ];
 
-      const data = await response.json();
+    for (const endpointUrl of apiEndpoints) {
+      try {
+        const response = await fetch(endpointUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: combinedPrompt }] }]
+          })
+        });
 
-      if (response.ok && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-        return data.candidates[0].content.parts[0].text;
+        const data = await response.json();
+
+        if (response.ok && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+          return data.candidates[0].content.parts[0].text;
+        }
+
+        if (data.error) {
+          lastErrorMsg = `${modelName}: ${data.error.message || JSON.stringify(data.error)}`;
+        }
+      } catch (err: any) {
+        lastErrorMsg = err?.message || 'Network error';
       }
-
-      if (data.error) {
-        lastErrorMsg = `${modelName}: ${data.error.message || JSON.stringify(data.error)}`;
-      }
-    } catch (err: any) {
-      lastErrorMsg = err?.message || 'Network error';
     }
   }
 
-  throw new Error(`Google API Error: ${lastErrorMsg || 'No active Gemini models responded'}`);
+  throw new Error(`Google Gemini Error: ${lastErrorMsg || 'No active Gemini models responded'}`);
 }
