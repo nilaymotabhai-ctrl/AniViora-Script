@@ -14,49 +14,59 @@ const MASTER_SYSTEM_PROMPT = [
   PROMPT_SAFETY_OUTPUT
 ].filter(Boolean).join('\n\n---\n\n');
 
+// AAPKI ASLI GEMINI API KEY DIRECT CODE MEIN FALLBACK:
+const HARDCODED_GEMINI_KEY = 'AIzaSyDMuC6-Yls3wqjpogQ82buJspSpeSPfOgk';
+
 export function isGeminiConfigured(): boolean {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  return Boolean(apiKey && apiKey !== 'your_key_here' && apiKey.trim() !== '' && !apiKey.includes('your_key'));
+  return true;
 }
 
 export async function generateStory(formData: any) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  if (!apiKey || apiKey === 'your_key_here' || apiKey.includes('your_key')) {
-    throw new Error('API Key Vercel mein connected nahi hai. Kripya Vercel Environment Variables mein VITE_GEMINI_API_KEY verify karke REDEPLOY karein.');
-  }
+  // Pehle Vercel env var dekhega, agar nahi mila toh direct aapki key use karega!
+  const apiKey = (import.meta.env.VITE_GEMINI_API_KEY && !import.meta.env.VITE_GEMINI_API_KEY.includes('your_key')) 
+    ? import.meta.env.VITE_GEMINI_API_KEY 
+    : HARDCODED_GEMINI_KEY;
 
-  const userPrompt = `
-=== USER STORY SELECTIONS ===
-Genre: ${formData.genre || 'Mystery'}
-Setting: ${formData.setting || 'Mahal'}
-Time Period: ${formData.timePeriod || 'Madhya Kaal'}
-Target Script Length: ${formData.length || '35-41 min'}
-Supernatural Element: ${formData.supernatural || 'Shraap'}
-Core Theme: ${formData.theme || 'Badla'}
-Custom Instructions: ${formData.customInstructions || 'None'}
-=============================
+  const combinedPrompt = `
+SYSTEM INSTRUCTIONS & MASTER RULES:
+${MASTER_SYSTEM_PROMPT}
 
-Please generate a full, highly detailed Hindi animation script following the Master System Prompt rules.
-  `;
+=========================================
+USER STORY SELECTIONS:
+- Genre: ${formData.genre || 'Mystery'}
+- Setting: ${formData.setting || 'Mahal'}
+- Time Period: ${formData.timePeriod || 'Madhya Kaal'}
+- Target Script Length: ${formData.length || '35-41 min'}
+- Supernatural Element: ${formData.supernatural || 'Shraap'}
+- Core Theme: ${formData.theme || 'Badla'}
+- Custom Instructions: ${formData.customInstructions || 'None'}
+=========================================
 
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
-  let lastError = '';
+Please generate a full, highly detailed, viral-ready Hindi animation script now.
+  `.trim();
 
-  for (const model of models) {
+  const endpoints = [
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+    'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent'
+  ];
+
+  let errors: string[] = [];
+
+  for (const endpointUrl of endpoints) {
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: MASTER_SYSTEM_PROMPT }] },
-            contents: [{ parts: [{ text: userPrompt }] }],
-            generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
-          })
-        }
-      );
+      const response = await fetch(`${endpointUrl}?key=${apiKey.trim()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: combinedPrompt }]
+            }
+          ]
+        })
+      });
 
       const data = await response.json();
 
@@ -65,12 +75,12 @@ Please generate a full, highly detailed Hindi animation script following the Mas
       }
 
       if (data.error) {
-        lastError = data.error.message || JSON.stringify(data.error);
+        errors.push(`${data.error.code || ''}: ${data.error.message || JSON.stringify(data.error)}`);
       }
     } catch (err: any) {
-      lastError = err?.message || 'Network error';
+      errors.push(err?.message || 'Network error');
     }
   }
 
-  throw new Error(`Google API Error: ${lastError || 'Failed to generate story'}`);
+  throw new Error(`Google Gemini Error: ${errors[0] || 'Failed to generate story'}`);
 }
